@@ -1,7 +1,8 @@
-import time, cv2, logging, datetime
+import time, cv2, logging, datetime, pathlib
 import mediapipe as mp
 
-model_file = open('D:\\Workspace\\python\\branch\\hand_landmarker.task', "rb")
+task_file_path = f'{pathlib.Path(__file__).parent}/hand_landmarker.task'
+model_file = open(task_file_path, "rb")
 model_data = model_file.read()
 model_file.close()
 
@@ -71,7 +72,7 @@ def main():
     hands = mp_hands.Hands(static_image_mode=False )
 
     # access webcam
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     recorder.info('webcam opened!')
     hand_landmarker = landmarker_and_result()
 
@@ -87,16 +88,16 @@ def main():
         # mirror frame
         # frame = cv2.flip(frame, 1)
         # display frame
-        cv2.imshow('frame',frame)
-        # update landmarker results
-        hand_landmarker.detect_async(frame)
         results = hands.process(frame)
 
+        # update landmarker results
+        hand_landmarker.detect_async(frame)
         # 繪製手部關節點
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
             recorder.info('captured frame processed')
+        cv2.imshow('frame',frame)
 
         recorder.info(hand_landmarker.result)
         print(hand_landmarker.result)
@@ -105,14 +106,16 @@ def main():
 
 
     # release everything
+    recorder.info("stopping...")
     cap.release()
     cv2.destroyAllWindows()
     hand_landmarker.close()
-    recorder.info("stopping...")
 
 
 if __name__ == "__main__":
     # create landmarker
     main()
+    
+    # end of process
     recorder.info('closed')
     
