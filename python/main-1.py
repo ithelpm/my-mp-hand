@@ -33,11 +33,11 @@ def main():
     while True:
         ret, frame = cap.read()
         results = hands.process(frame)
-        recorder.info('captured frame processed')
         # 繪製手部關節點
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            recorder.info('captured frame processed')
 
         cv2.imshow("Image", frame)
         if cv2.waitKey(1) == ord("q"):
