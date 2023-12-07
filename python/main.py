@@ -10,7 +10,7 @@ model_file.close()
 class Recorder:
     def __init__(self):
         current_time = datetime.datetime.now()
-        formatted_date = f'{current_time.strftime("%Y-%m-%d.%H-%M-%S")}'
+        formatted_date = f'{current_time.strftime("%Y-%m-%d")}'
         logging.basicConfig(filename=f'{formatted_date}.log', encoding='utf-8', level=logging.INFO)
         self.logger = logging.getLogger(f'{formatted_date}.log')
 
@@ -35,13 +35,12 @@ class landmarker_and_result():
         def update_result(result: mp.tasks.vision.HandLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
             self.result = result
 
-        # HandLandmarkerOptions (details here: https://developers.google.com/mediapipe/solutions/vision/hand_landmarker/python#live-stream)
         options = mp.tasks.vision.HandLandmarkerOptions(
             base_options=mp.tasks.BaseOptions(
                 model_asset_buffer=model_data
                 ),  # path to model
             running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,  # running on a live stream
-            num_hands=2,  # track both hands
+            num_hands=2,  # 要讀取的手的數量
             # lower than value to get predictions more often
             min_hand_detection_confidence=0.3,
             # lower than value to get predictions more often
@@ -65,6 +64,17 @@ class landmarker_and_result():
         self.hand.close()
         recorder.info('closing...')
 
+def set_cam():
+    # 設定相機來源
+    cap = cv2.VideoCapture(1)
+
+    # 調整視訊流的解析度
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+
+    # 調整視訊流的幀率
+    cap.set(cv2.CAP_PROP_FPS, 30)
+    return cap
 
 def main():
     mp_drawing = mp.solutions.drawing_utils
@@ -72,22 +82,13 @@ def main():
     hands = mp_hands.Hands(static_image_mode=False )
 
     # access webcam
-    cap = cv2.VideoCapture(1)
+    cap = set_cam()
     recorder.info('webcam opened!')
     hand_landmarker = landmarker_and_result()
-
-    # 調整視訊流的解析度
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    # 調整視訊流的幀率
-    cap.set(cv2.CAP_PROP_FPS, 30)
 
     while True:
         # pull frame
         ret, frame = cap.read()
-        # mirror frame
-        # frame = cv2.flip(frame, 1)
-        # display frame
         results = hands.process(frame)
 
         # update landmarker results
@@ -95,9 +96,10 @@ def main():
         # 繪製手部關節點
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                mp_drawing.draw_landmarks(
+                    frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
             recorder.info('captured frame processed')
-        cv2.imshow('frame',frame)
+        cv2.imshow('frame', frame)
 
         recorder.info(hand_landmarker.result)
         print(hand_landmarker.result)
@@ -113,6 +115,9 @@ def main():
 
 
 if __name__ == "__main__":
+    print(mp.__version__)   # version = 0.10.7
+    print(cv2.__version__)  # version = 4.8.1
+
     # create landmarker
     main()
     

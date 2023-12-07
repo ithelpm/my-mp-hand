@@ -35,8 +35,8 @@ def main_loop():
                     frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
             recorder.info('captured frame processed')
         cv2.imshow('frame', frame)
-        byte_array = convert_image_to_byte_array(frame)
-        send_byte_array(byte_array, 'localhost', 8080)
+        # byte_array = convert_image_to_byte_array(frame)
+        # send_byte_array(byte_array, 'localhost', 8080)
         if cv2.waitKey(1) == ord("q"):
             break
     cap.release()
