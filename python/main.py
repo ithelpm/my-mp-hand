@@ -1,6 +1,10 @@
 import argparse
-import sys
+import sys, os
 import time
+import logging
+from pathlib import Path
+import threading
+import requests
 
 import cv2
 import mediapipe as mp
@@ -16,7 +20,22 @@ mp_drawing_styles = mp.solutions.drawing_styles
 # Global variables to calculate FPS
 COUNTER, FPS = 0, 0
 START_TIME = time.time()
+SIGNAL = ''
 CATEGORY = ''
+THREAD_FLAG = 'OPEN'
+
+def send_to_pi():
+    global CATEGORY, THREAD_FLAG
+    while True:
+        if THREAD_FLAG == 'CLOSE':
+            return
+        if CATEGORY != "None" and CATEGORY !='':
+            with requests.get(f"https://hook.us1.make.com/lldgoy4lmtg8mt262nyk6q4v9z9ga9i9?num={CATEGORY}") as response:
+                print(CATEGORY)
+                print(response.text)
+                print(response.status_code)
+        CATEGORY = ''
+        time.sleep(1)
 
 
 def run(model: str, num_hands: int,
@@ -39,6 +58,7 @@ def run(model: str, num_hands: int,
       height: The height of the frame captured from the camera.
   """
 
+    global CATEGORY, SIGNAL, THREAD_FLAG
     # Start capturing video input from the camera
     cap = cv2.VideoCapture(camera_id)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
@@ -59,6 +79,7 @@ def run(model: str, num_hands: int,
 
     recognition_frame = None
     recognition_result_list = []
+    t1.start()
 
     def save_result(result: vision.GestureRecognizerResult,
                     unused_output_image: mp.Image, timestamp_ms: int):
@@ -128,8 +149,7 @@ def run(model: str, num_hands: int,
                     category_name = gesture[0].category_name
                     CATEGORY = category_name
                     score = round(gesture[0].score, 2)
-                    result_text = f'{category_name} ({score})'
-
+                    result_text= SIGNAL = f'{category_name} ({score})'
                     # Compute text size
                     text_size = \
                         cv2.getTextSize(result_text, cv2.FONT_HERSHEY_DUPLEX, label_font_size,
@@ -148,7 +168,9 @@ def run(model: str, num_hands: int,
                     cv2.putText(current_frame, result_text, (text_x, text_y),
                                 cv2.FONT_HERSHEY_DUPLEX, label_font_size,
                                 label_text_color, label_thickness, cv2.LINE_AA)
-
+                    
+                    # send_to_pi(result_text, logger)
+                    # Send the text
                 # Draw hand landmarks on the frame
                 hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
                 hand_landmarks_proto.landmark.extend([
@@ -162,6 +184,7 @@ def run(model: str, num_hands: int,
                     mp_hands.HAND_CONNECTIONS,
                     mp_drawing_styles.get_default_hand_landmarks_style(),
                     mp_drawing_styles.get_default_hand_connections_style())
+                
 
             recognition_frame = current_frame
             recognition_result_list.clear()
@@ -171,18 +194,18 @@ def run(model: str, num_hands: int,
 
         # Stop the program if the ESC key is pressed.
         if cv2.waitKey(1) == 27:
+            THREAD_FLAG = 'CLOSE'
             break
 
-        global CATEGORY
         match CATEGORY:
             case 'Close_Fist':
                 """change to green light"""
             case 'Open_Palm':
                 """change to red light"""
-
     recognizer.close()
     cap.release()
     cv2.destroyAllWindows()
+
 
 
 def main():
@@ -233,12 +256,12 @@ def main():
         required=False,
         default=480)
     args = parser.parse_args()
-
+    
     run(args.model, int(args.numHands), args.minHandDetectionConfidence,
         args.minHandPresenceConfidence, args.minTrackingConfidence,
         int(args.cameraId), args.frameWidth, args.frameHeight)
 
 
 if __name__ == '__main__':
+    t1 = threading.Thread(target=send_to_pi)
     main()
-
