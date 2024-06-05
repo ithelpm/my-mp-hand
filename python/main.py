@@ -1,10 +1,5 @@
 import argparse
-import sys, os
-import time
-import logging
-from pathlib import Path
-import threading
-import requests
+import sys, time, threading, requests
 
 import cv2
 import mediapipe as mp
@@ -23,20 +18,31 @@ START_TIME = time.time()
 SIGNAL = ''
 CATEGORY = ''
 THREAD_FLAG = 'OPEN'
+PI_PORT=5000
+PI_IP = '192.168.1.2'
 
 def send_to_pi():
-    global CATEGORY, THREAD_FLAG
+    global CATEGORY, THREAD_FLAG, PI_PORT, PI_IP
     while True:
         if THREAD_FLAG == 'CLOSE':
             return
         if CATEGORY != "None" and CATEGORY !='':
-            with requests.get(f"https://hook.us1.make.com/lldgoy4lmtg8mt262nyk6q4v9z9ga9i9?num={CATEGORY}") as response:
+            with requests.get(f"http://{PI_IP}:{PI_PORT}/6d7bf9c4-33d1-4a18-a2d9-27fbe733e95b?name={CATEGORY}") as response:
                 print(CATEGORY)
                 print(response.text)
                 print(response.status_code)
         CATEGORY = ''
         time.sleep(1)
-
+def send_to_make():
+    global CATEGORY, THREAD_FLAG, PI_PORT, PI_IP
+    while True:
+        if THREAD_FLAG == 'CLOSE':
+            return
+        if CATEGORY != "None" and CATEGORY !='':
+            with requests.get(f"https://hook.us1.make.com/lldgoy4lmtg8mt262nyk6q4v9z9ga9i9?num={CATEGORY}") as response:
+                pass
+        CATEGORY = ''
+        time.sleep(1)
 
 def run(model: str, num_hands: int,
         min_hand_detection_confidence: float,
@@ -61,8 +67,8 @@ def run(model: str, num_hands: int,
     global CATEGORY, SIGNAL, THREAD_FLAG
     # Start capturing video input from the camera
     cap = cv2.VideoCapture(camera_id)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, float(width))
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(height))
 
     # Visualization parameters
     row_size = 50  # pixels
@@ -80,6 +86,7 @@ def run(model: str, num_hands: int,
     recognition_frame = None
     recognition_result_list = []
     t1.start()
+    # t2.start()
 
     def save_result(result: vision.GestureRecognizerResult,
                     unused_output_image: mp.Image, timestamp_ms: int):
@@ -205,6 +212,9 @@ def run(model: str, num_hands: int,
     recognizer.close()
     cap.release()
     cv2.destroyAllWindows()
+    requests.get(f"http://{PI_IP}:{PI_PORT}/6d7bf9c4-33d1-4a18-a2d9-27fbe733e95b?name={None}")
+    t1.join()
+    t2.join()
 
 
 
@@ -264,4 +274,5 @@ def main():
 
 if __name__ == '__main__':
     t1 = threading.Thread(target=send_to_pi)
+    t2 = threading.Thread(target=send_to_make)
     main()
